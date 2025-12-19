@@ -64,7 +64,6 @@ DECLARE_OPCODE(J,          0x0B<<3, apply_J);  // J = lambda xyzw = xy(xwz)
 
 // Combinators needed to implement IO
 DECLARE_OPCODE(T,          0x0D<<1, apply_T);  // T = lambda xy . yx
-DECLARE_OPCODE(KI,         0x09<<1, apply_I);  // KI = lambda xy . y         = Church zero
 DECLARE_OPCODE(V,          0x0F<<2, apply_V);  // V = lambda xyz . zxy
 DECLARE_OPCODE(SB,         0x11<<2, apply_SB); // SB = lambda xyz = y(xyz)   = Church increment
 
@@ -306,7 +305,7 @@ static void apply_IN_V(struct Node *a)
     if(code<0 || code>255)
         code=256;
 
-    struct Node *donor=&KI;
+    struct Node *donor=&I;
     for(int i=0; i<code; ++i)
     {
         donor=new_application(&SB, donor);
@@ -332,22 +331,22 @@ static void apply_OUT_C(struct Node *a)
     reduce(n);
 
     unsigned int code=0;
-    while(n->opcode==OP_APPLY && n->right->opcode==OP_SWAPPER && code<256+126)
+    while(n->opcode==OP_APPLY && n->right->opcode==OP_SWAPPER && code<257+126)
     {
         ++code;
         n=n->left;
     }
     if(n->opcode!=OP_STOPPER)
-        code=256+126;
+        code=257+126;
 
-    if(code<256)
+    if(code>0 && code<257)
     {
-        fputc(code, stdout);
+        fputc(code-1, stdout);
         fflush(stdout);
     }
     else
     {
-        exit(code-256);
+        exit(code-257);
     }
 
     // Should return `T<OUT> to continue. Being applied to the rest of the program, it gives `<PROG><OUT>
