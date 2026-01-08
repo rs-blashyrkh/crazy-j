@@ -1,7 +1,7 @@
 // Blashyrkh.maniac.coding
 // BTC:1Maniaccv5vSQVuwrmRtfazhf2WsUJ1KyD DOGE:DManiac9Gk31A4vLw9fLN9jVDFAQZc2zPj
 
-// Copyright (c) 2025 Blashyrkh
+// Copyright (c) 2025-2026 Blashyrkh
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to
@@ -46,31 +46,29 @@ struct Node
 
 // Application nodes. Dynamically allocated on heap
 static const unsigned int OP_APPLY = 0x00;
-// Special opcodes - IN_C (input continuation) and IN_V (input value). All special nodes
-// are chained using 'left' pointer into single list. All special nodes with particular
-// opcode (either OP_IN_C or OP_IN_V) are resolved and replaced en masse.
-static const unsigned int OP_IN_C  = 0x01;
-static const unsigned int OP_IN_V  = 0x03;
-static void apply_IN_C(struct Node *a);
-static void apply_IN_V(struct Node *a);
+// Special opcodes - IN (input). No other special opcodes in current implementation, but they
+// may be added in the future. All special nodes are chained using 'left' pointer into single
+// list. All special nodes with particular opcode are resolved and replaced en masse.
+static const unsigned int OP_IN  = 0x01;
+static void apply_IN(struct Node *a);
 
 DECLARE_OPCODE(STOPPER,    0x02,    NO_APPLY);
-DECLARE_OPCODE(SWAPPER,    0x05,    apply_SWAPPER);
-DECLARE_OPCODE(OUT_C,      0x07,    apply_OUT_C);
+DECLARE_OPCODE(SWAPPER,    0x03,    apply_SWAPPER);
+DECLARE_OPCODE(OUT_C,      0x05,    apply_OUT_C);
 
 // Basic combinators. Shift is arity-1
-DECLARE_OPCODE(I,          0x09<<0, apply_I);  // I = lambda x . x
-DECLARE_OPCODE(J,          0x0B<<3, apply_J);  // J = lambda xyzw = xy(xwz)
+DECLARE_OPCODE(I,          0x07<<0, apply_I);  // I = lambda x . x
+DECLARE_OPCODE(J,          0x09<<3, apply_J);  // J = lambda xyzw = xy(xwz)
 
 // Combinators needed to implement IO
-DECLARE_OPCODE(T,          0x0D<<1, apply_T);  // T = lambda xy . yx
-DECLARE_OPCODE(V,          0x0F<<2, apply_V);  // V = lambda xyz . zxy
-DECLARE_OPCODE(SB,         0x11<<2, apply_SB); // SB = lambda xyz = y(xyz)   = Church increment
+DECLARE_OPCODE(T,          0x0B<<1, apply_T);  // T = lambda xy . yx
+DECLARE_OPCODE(V,          0x0D<<2, apply_V);  // V = lambda xyz . zxy
+DECLARE_OPCODE(SB,         0x0F<<2, apply_SB); // SB = lambda xyz = y(xyz)   = Church increment
 
 
 static inline int is_special(unsigned int opcode)
 {
-    return (opcode&~2)==1;
+    return opcode==OP_IN;
 }
 
 typedef void (*apply_fn)(struct Node *);
@@ -78,8 +76,7 @@ typedef void (*apply_fn)(struct Node *);
 // Not just a list. (idx*2+1) must be equal to the opcode with right zeroes stripped
 static const apply_fn apply_functions[]=
 {
-    apply_IN_C,
-    apply_IN_V,
+    apply_IN,
     apply_SWAPPER,
     apply_OUT_C,
     apply_I,
@@ -240,14 +237,9 @@ static inline void replace_node(struct Node *a, const struct Node *source)
     }
 }
 
-static inline struct Node *new_input_cont(void)
+static inline struct Node *new_input(void)
 {
-    return new_node(NULL, NULL, OP_IN_C);
-}
-
-static inline struct Node *new_input_value(void)
-{
-    return new_node(NULL, NULL, OP_IN_V);
+    return new_node(NULL, NULL, OP_IN);
 }
 
 // Find all nodes, remove them from the hash table, chain together into single-linked list
@@ -274,14 +266,24 @@ static struct Node *find_special_nodes(unsigned int opcode)
     return res;
 }
 
-static void apply_IN_C(struct Node *a)
+static void apply_IN(struct Node *a)
 {
-    struct Node *node=find_special_nodes(OP_IN_C);
+    struct Node *node=find_special_nodes(OP_IN);
     if(!node)
         return;
 
-    struct Node *left=new_application(&V, new_input_value());
-    struct Node *right=new_input_cont();
+    int code=fgetc(stdin);
+    if(code<0 || code>255)
+        code=256;
+
+    struct Node *numeral=&I;
+    for(int i=0; i<code; ++i)
+    {
+        numeral=new_application(&SB, numeral);
+    }
+
+    struct Node *left=new_application(&V, numeral);
+    struct Node *right=new_input();
 
     while(node)
     {
@@ -290,31 +292,6 @@ static void apply_IN_C(struct Node *a)
         node->left=left;
         node->right=right;
         node->opcode=OP_APPLY;
-
-        node=next;
-    }
-}
-
-static void apply_IN_V(struct Node *a)
-{
-    struct Node *node=find_special_nodes(OP_IN_V);
-    if(!node)
-        return;
-
-    int code=fgetc(stdin);
-    if(code<0 || code>255)
-        code=256;
-
-    struct Node *donor=&I;
-    for(int i=0; i<code; ++i)
-    {
-        donor=new_application(&SB, donor);
-    }
-
-    while(node)
-    {
-        struct Node *next=node->left;
-        replace_node(node, donor);
 
         node=next;
     }
@@ -568,7 +545,7 @@ static void reduce(struct Node *p)
 
 int main(int argc, char *argv[])
 {
-    struct Node *program=new_input_cont();
+    struct Node *program=new_input();
     for(int i=1; i<argc; ++i)
     {
         FILE *f=fopen(argv[i], "rt");
