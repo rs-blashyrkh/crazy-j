@@ -206,9 +206,9 @@ static inline struct Node *new_node(struct Node *left, struct Node *right, unsig
 static inline struct Node *new_combinator(char ch)
 {
     ch=tolower(ch);
-    if(ch=='i')
+    if(ch=='i' || ch=='I')
         return &I;
-    else if(ch=='j')
+    else if(ch=='j' || ch=='J')
         return &J;
     else
         return NULL;
@@ -383,10 +383,25 @@ static struct Node *new_application_load(struct Node *left, struct Node *right)
     return new_application(left, right);
 }
 
+struct ParseErrorInfo
+{
+    unsigned int line;
+    unsigned int col;
+    int ch;
+    const char *message;
+};
+
 // TODO: return parsing error info (line, col, message)
 // TODO: support CC syntax 
-static struct Node *parse_program(FILE *f)
+static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
 {
+    enum Syntax
+    {
+        Unknown,
+        Unlambda,
+        CC
+    } syntax=Unknown;
+
     unsigned int line=1;
     unsigned int col=0;
     int ignore_rest_of_line=0;
@@ -416,9 +431,25 @@ static struct Node *parse_program(FILE *f)
             continue;
 
         if(ch=='#')
-            ignore_rest_of_line=1;
-        else if(ch=='`')
         {
+            ignore_rest_of_line=1;
+            continue;
+        }
+        if(isspace(ch))
+            continue;
+
+        if(
+            ((ch=='`' || ch=='i' || ch=='j') && (syntax==CC)) ||
+            ((ch=='(' || ch==')' || ch=='I' || ch=='J') && (syntax==Unlambda)))
+        {
+            error->message="Unexpected character";
+            goto err;
+        }
+
+        if(ch=='`' || ch=='(')
+        {
+            syntax=(ch=='`'?Unlambda:CC);
+
             if(n_stack_size>=n_stack_cap)
             {
                 n_stack_cap+=10;
@@ -428,8 +459,10 @@ static struct Node *parse_program(FILE *f)
             }
             n_stack[n_stack_size++]=0;
         }
-        else if(ch=='i' || ch=='j')
+        else if(ch=='i' || ch=='j' || ch=='I' || ch=='J')
         {
+            syntax=(ch=='i' || ch=='j')?Unlambda:CC;
+
             if(op_stack_size>=op_stack_cap)
             {
                 op_stack_cap+=20;
@@ -439,30 +472,85 @@ static struct Node *parse_program(FILE *f)
             }
             op_stack[op_stack_size++]=new_combinator(ch);
             ++n_stack[n_stack_size-1];
+        }
+        else if(ch==')')
+        {
+            syntax=CC;
 
-            while(n_stack_size>0 && n_stack[n_stack_size-1]==2)
+            if(n_stack_size==1)
             {
-                struct Node *left=op_stack[op_stack_size-2];
-                struct Node *right=op_stack[op_stack_size-1];
+                error->message="Unbalanced";
+                goto err;
+            }
 
+            if(n_stack[n_stack_size-1]==0)
+            {
+                error->message="Unexpected character";
+                goto err;
+            }
+
+            --n_stack_size;
+            ++n_stack[n_stack_size-1];
+        }
+        else
+        {
+            error->message="Unexpected character";
+            goto err;
+        }
+
+        while(n_stack_size>=1 && n_stack[n_stack_size-1]==2)
+        {
+            struct Node *left=op_stack[op_stack_size-2];
+            struct Node *right=op_stack[op_stack_size-1];
+
+            --op_stack_size;
+            op_stack[op_stack_size-1]=new_application_load(left, right);
+
+            if(syntax==CC)
+            {
+                --n_stack[n_stack_size-1];
+            }
+            else
+            {
+                if(n_stack_size==1)
+                {
+                    error->message="EOF expected instead of";
+                    goto err;
+                }
                 --n_stack_size;
                 ++n_stack[n_stack_size-1];
-                --op_stack_size;
-
-                op_stack[op_stack_size-1]=new_application_load(left, right);
             }
         }
     }
-    // TODO: checks
 
-    struct Node *res=NULL;
-    if(op_stack_size==1)
+    struct Node *res;
+    if(n_stack_size==1 && n_stack[0]==0)
+    {
+        res=new_combinator('i');
+    }
+    else if(n_stack_size>1)
+    {
+        ++col;
+        error->message="Unexpected";
+        goto err;
+    }
+    else
+    {
         res=op_stack[0];
+    }
 
     free(op_stack);
     free(n_stack);
 
     return res;
+
+err:
+    error->line=line;
+    error->col=col;
+    error->ch=ch;
+    free(op_stack);
+    free(n_stack);
+    return NULL;
 }
 
 static inline int get_non_ws_char(FILE *f)
@@ -555,12 +643,16 @@ int main(int argc, char *argv[])
             return 1;
         }
 
-        struct Node *node=parse_program(f);
+        struct ParseErrorInfo error;
+        struct Node *node=parse_program(f, &error);
         fclose(f);
 
         if(!node)
         {
-            fprintf(stderr, "Failed to parse source file\n");
+            if(error.ch==EOF)
+                fprintf(stderr, "%s:%u:%u: %s EOF\n", argv[i], error.line, error.col, error.message);
+            else
+                fprintf(stderr, "%s:%u:%u: %s '%c'\n", argv[i], error.line, error.col, error.message, error.ch);
             return 1;
         }
 
