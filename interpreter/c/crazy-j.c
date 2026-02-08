@@ -63,8 +63,13 @@ DECLARE_OPCODE(J,          0x09<<3, apply_J);  // J = lambda xyzw = xy(xwz)
 // Combinators needed to implement IO
 DECLARE_OPCODE(T,          0x0B<<1, apply_T);  // T = lambda xy . yx
 DECLARE_OPCODE(V,          0x0D<<2, apply_V);  // V = lambda xyz . zxy
-DECLARE_OPCODE(SB,         0x0F<<2, apply_SB); // SB = lambda xyz = y(xyz)   = Church increment
+DECLARE_OPCODE(SB,         0x0F<<2, apply_SB); // SB = lambda xyz . y(xyz)   = Church increment
 
+// Combinators used in program pre-processing
+DECLARE_OPCODE(Q1,         0x11<<2, apply_Q1);
+DECLARE_OPCODE(R,          0x13<<2, apply_R);
+DECLARE_OPCODE(Q4,         0x15<<2, apply_Q4);
+DECLARE_OPCODE(JR,         0x17<<3, apply_JR);  // JR = lambda xyzw . ywzx
 
 static inline int is_special(unsigned int opcode)
 {
@@ -84,6 +89,10 @@ static const apply_fn apply_functions[]=
     apply_T,
     apply_V,
     apply_SB,
+    apply_Q1,
+    apply_R,
+    apply_Q4,
+    apply_JR
 };
 
 
@@ -361,9 +370,41 @@ static void apply_SB(struct Node *a)
         new_application(new_application(a->left->left->right, a->left->right), a->right));
 }
 
+static void apply_Q1(struct Node *a)
+{
+    replace_application(
+        a,
+        a->left->left->right,
+        new_application(a->right, a->left->right));
+}
+
+static void apply_R(struct Node *a)
+{
+    replace_application(
+        a,
+        new_application(a->left->right, a->right),
+        a->left->left->right);
+}
+
+static void apply_Q4(struct Node *a)
+{
+    replace_application(
+        a,
+        a->right,
+        new_application(a->left->right, a->left->left->right));
+}
+
+static void apply_JR(struct Node *a)
+{
+    replace_application(a,
+        new_application(
+            new_application(a->left->left->right, a->right),
+            a->left->right),
+        a->left->left->left->right);
+}
+
 static struct Node *new_application_load(struct Node *left, struct Node *right)
 {
-/*
     struct OptimizeRule
     {
         unsigned int  op_left;
@@ -372,6 +413,11 @@ static struct Node *new_application_load(struct Node *left, struct Node *right)
     };
     static const struct OptimizeRule rules[]=
     {
+        {OP_J,  OP_I,  &Q1 },
+        {OP_Q1, OP_I,  &T  },
+        {OP_J,  OP_T,  &R  },
+        {OP_Q1, OP_T,  &Q4 },
+        {OP_J,  OP_R,  &JR },
     };
 
     for(unsigned int i=0; i<sizeof(rules)/sizeof(rules[0]); ++i)
@@ -379,7 +425,7 @@ static struct Node *new_application_load(struct Node *left, struct Node *right)
         if(left->opcode==rules[i].op_left && right->opcode==rules[i].op_right)
             return rules[i].node;
     }
-*/
+
     return new_application(left, right);
 }
 
@@ -391,8 +437,6 @@ struct ParseErrorInfo
     const char *message;
 };
 
-// TODO: return parsing error info (line, col, message)
-// TODO: support CC syntax 
 static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
 {
     enum Syntax
@@ -553,13 +597,31 @@ err:
     return NULL;
 }
 
-static inline int get_non_ws_char(FILE *f)
+static void dump_node(FILE *f, const struct Node *p)
 {
-    for(;;)
+    if(p->opcode==OP_APPLY)
     {
-        int ch=fgetc(f);
-        if(ch==EOF || !isspace(ch))
-            return ch;
+        fputc('`', f);
+        dump_node(f, p->left);
+        dump_node(f, p->right);
+    }
+    else
+    {
+        static const char *names[]=
+        {
+            "{IN}",  "{SW}", "{OUT}", "I",   "J",  "T", "V", "{SB}",
+            "Q1",    "R",    "Q4",    "Jr",
+        };
+
+        unsigned int opcode=p->opcode;
+        while(!(opcode&1))
+            opcode>>=1;
+
+        opcode>>=1;
+        if(opcode<sizeof(names)/sizeof(names[0]))
+            fputs(names[opcode], f);
+        else
+            fputs("{?}", f);
     }
 }
 
@@ -633,9 +695,24 @@ static void reduce(struct Node *p)
 
 int main(int argc, char *argv[])
 {
+    int dump_mode=0;
+    int allow_options=1;
+
     struct Node *program=new_input();
     for(int i=1; i<argc; ++i)
     {
+        if(allow_options && strcmp(argv[i], "--")==0)
+        {
+            allow_options=0;
+            continue;
+        }
+
+        if(allow_options && strcmp(argv[i], "--dump")==0)
+        {
+            dump_mode=1;
+            continue;
+        }
+
         FILE *f=fopen(argv[i], "rt");
         if(!f)
         {
@@ -654,6 +731,11 @@ int main(int argc, char *argv[])
             else
                 fprintf(stderr, "%s:%u:%u: %s '%c'\n", argv[i], error.line, error.col, error.message, error.ch);
             return 1;
+        }
+        if(dump_mode)
+        {
+            dump_node(stderr, node);
+            fputc('\n', stderr);
         }
 
         program=new_application(node, program);
