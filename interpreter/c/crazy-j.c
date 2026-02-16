@@ -215,10 +215,14 @@ static inline struct Node *new_node(struct Node *left, struct Node *right, unsig
 static inline struct Node *new_combinator(char ch)
 {
     ch=tolower(ch);
-    if(ch=='i' || ch=='I')
+    if(ch=='i' || ch=='I' || ch=='-')
         return &I;
-    else if(ch=='j' || ch=='J')
+    else if(ch=='j' || ch=='J' || ch=='+')
         return &J;
+    else if(ch==',')
+        return &Q1;
+    else if(ch=='.')
+        return &T;
     else
         return NULL;
 }
@@ -443,7 +447,8 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
     {
         Unknown,
         Unlambda,
-        CC
+        CC,
+        BFMimic
     } syntax=Unknown;
 
     unsigned int line=1;
@@ -458,6 +463,12 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
     unsigned int n_stack_cap=10;
     unsigned int *n_stack=(unsigned int *)malloc(n_stack_cap*sizeof(unsigned int));
     n_stack[n_stack_size++]=0;
+
+    unsigned int ltr_stack_size=0;
+    unsigned int ltr_stack_cap=0;
+    char *ltr_stack=(char *)malloc(ltr_stack_cap*sizeof(char));
+
+    char left_to_right=1;
 
     int ch;
     while((ch=fgetc(f))!=EOF)
@@ -483,16 +494,19 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
             continue;
 
         if(
-            ((ch=='`' || ch=='i' || ch=='j') && (syntax==CC)) ||
-            ((ch=='(' || ch==')' || ch=='I' || ch=='J') && (syntax==Unlambda)))
+            ((ch=='`' || ch=='i' || ch=='j') && (syntax!=Unlambda && syntax!=Unknown)) ||
+            ((ch=='(' || ch==')' || ch=='I' || ch=='J') && (syntax!=CC && syntax!=Unknown)) ||
+            ((ch=='[' || ch==']' || ch=='>' || ch=='<' || ch=='.' || ch==',' || ch=='+' || ch=='-') && (syntax!=BFMimic && syntax!=Unknown)))
         {
             error->message="Unexpected character";
             goto err;
         }
 
-        if(ch=='`' || ch=='(')
+        if(ch=='`' || ch=='(' || ch=='[')
         {
-            syntax=(ch=='`'?Unlambda:CC);
+            syntax=(ch=='`')?Unlambda
+                  :(ch=='(')?CC
+                            :BFMimic;
 
             if(n_stack_size>=n_stack_cap)
             {
@@ -502,10 +516,24 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
                     abort();
             }
             n_stack[n_stack_size++]=0;
+
+            if(syntax==BFMimic)
+            {
+                if(ltr_stack_size>=ltr_stack_cap)
+                {
+                    ltr_stack_cap+=10;
+                    ltr_stack=(char *)realloc(ltr_stack, ltr_stack_cap*sizeof(char));
+                    if(!ltr_stack)
+                        abort();
+                }
+                ltr_stack[ltr_stack_size++]=left_to_right;
+            }
         }
-        else if(ch=='i' || ch=='j' || ch=='I' || ch=='J')
+        else if(ch=='i' || ch=='j' || ch=='I' || ch=='J' || ch=='+' || ch=='-' || ch=='.' || ch==',')
         {
-            syntax=(ch=='i' || ch=='j')?Unlambda:CC;
+            syntax=(ch=='i' || ch=='j')?Unlambda
+                  :(ch=='I' || ch=='J')?CC
+                                       :BFMimic;
 
             if(op_stack_size>=op_stack_cap)
             {
@@ -517,9 +545,10 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
             op_stack[op_stack_size++]=new_combinator(ch);
             ++n_stack[n_stack_size-1];
         }
-        else if(ch==')')
+        else if(ch==')' || ch==']')
         {
-            syntax=CC;
+            syntax=(ch==')')?CC
+                            :BFMimic;
 
             if(n_stack_size==1)
             {
@@ -535,6 +564,16 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
 
             --n_stack_size;
             ++n_stack[n_stack_size-1];
+
+            if(syntax==BFMimic)
+            {
+                left_to_right=ltr_stack[--ltr_stack_size];
+            }
+        }
+        else if(ch=='>' || ch=='<')
+        {
+            syntax=BFMimic;
+            left_to_right=(ch=='>');
         }
         else
         {
@@ -548,9 +587,10 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
             struct Node *right=op_stack[op_stack_size-1];
 
             --op_stack_size;
-            op_stack[op_stack_size-1]=new_application_load(left, right);
+            op_stack[op_stack_size-1]=left_to_right?new_application_load(left, right)
+                                                   :new_application_load(right, left);
 
-            if(syntax==CC)
+            if(syntax==CC || syntax==BFMimic)
             {
                 --n_stack[n_stack_size-1];
             }
@@ -585,6 +625,7 @@ static struct Node *parse_program(FILE *f, struct ParseErrorInfo *error)
 
     free(op_stack);
     free(n_stack);
+    free(ltr_stack);
 
     return res;
 
@@ -594,6 +635,7 @@ err:
     error->ch=ch;
     free(op_stack);
     free(n_stack);
+    free(ltr_stack);
     return NULL;
 }
 
