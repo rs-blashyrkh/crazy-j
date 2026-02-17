@@ -215,9 +215,9 @@ static inline struct Node *new_node(struct Node *left, struct Node *right, unsig
 static inline struct Node *new_combinator(char ch)
 {
     ch=tolower(ch);
-    if(ch=='i' || ch=='I' || ch=='-')
+    if(ch=='i' || ch=='I' || ch=='+')
         return &I;
-    else if(ch=='j' || ch=='J' || ch=='+')
+    else if(ch=='j' || ch=='J' || ch=='-')
         return &J;
     else if(ch==',')
         return &Q1;
