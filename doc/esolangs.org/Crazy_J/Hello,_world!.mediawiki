@@ -1,0 +1,95 @@
+<includeonly>Detailed description: [[Crazy J/Hello, world!]]
+</includeonly><noinclude>
+__NOTOC__
+[[Category:Examples]]
+==[[Crazy J]] examples==
+===Hello, world!===
+
+Making [[Hello, world!]] in Crazy J is not a difficult task. Difficult task is making the source code short. Even small numeric constants have long expressions in IJ basis: 14 combinators for <code>2</code>, 19 combinators for <code>3</code> and <code>4</code>, 31 combinators for increment function, 13 combinators for multiplication etc... Fortunately, we have powerful (and short!) duplicative <code>J</code> combinator, which can be used to squash duplicate code (some tricks are going to be described).
+
+This example is also a playground for the recent Crazy J feature - [[Crazy J#Brainfuck mimic syntax | Brainfuck mimic syntax]]. Using this syntax allows to create Crazy J + Brainfuck [[Polyglot | polyglot]] programs, and that's exactly what we're going to do!
+
+Let the show begin...
+
+====Lambda calculus code====
+
+There are many ways to print a static string of characters. A couple of them:
+
+    (a) λ in f . f CHR<sub>1</sub> (λ f . f CHR<sub>2</sub> (...(λ f . f EOF in)...))
+
+    (b) λ in f . f CHR<sub>1</sub> ((λ in f . f CHR<sub>2</sub> ((...((λ in f . f EOF in) in))... in)) in)
+
+Solution (a) implies a "long way up" for <code>in</code> during abstraction elimination process. Solution (b) addresses this issue by explicit passing <code>in</code> to nested lambda. But both solutions share the same downside: a linear overhead.
+
+Instead, let's use the intrinsic property of Church numerals and find a solution in this form:
+
+    N f x a CHR<sub>1</sub> CHR<sub>2</sub> ... CHR<sub>N</sub> <implicit input arg>
+
+where <code>f</code> and <code>x</code> are some functions (we're going to construct them) and <code>a</code> is the initial value of an accumulator. The major benefit of such solution is constant overhead - to represent <code>N</code> (length of the string to be printed), functions <code>f</code> and <code>x</code>, and <code>a</code>.
+
+Why do we need an accumulator at all? Why <code>N f x</code> can't consume <code>CHR<sub>1</sub></code>, produce a part of the output and then return function ready to consume <code>CHR<sub>2</sub></code> and so on? The answer is simple: because a part of the output is a function (<code>λ f . f CHR<sub>1</sub> <tail></code>) that will consume <code>CHR<sub>2</sub></code> instead.
+
+The simplest choice for the accumulator is a single-linked list: initially <code>nil</code>, each character is prepended to it, and <code>x</code> function just returns the list. It also means that characters are fed in reverse.
+
+Let's construct function <code>f</code>:
+
+    N f x aсс CHR<sub>N</sub> CHR<sub>N-1</sub>... = f (N-1 f x) aсс CHR<sub>N</sub> CHR<sub>N-1</sub>...
+
+We want <code>f</code> to consume <code>CHR<sub>N</sub></code>, add it to accumulator and make a recursive call <code>N-1 f x</code>. 
+
+    f = λ rec aсс ch . rec (λ f . f ch aсс)
+
+Only one problem left: we forgot about the input. It can't be discarded so we have to propagate it through the accumulated list and put it after EOF:
+
+    a = I
+    f = λ rec acc ch . rec (λ in f . f ch (acc in))
+
+Finally, the "Hello, world!":
+
+    hw = 15                                                // N (15 characters including EOF)
+         (λ rec acc ch . rec (λ in f . f ch (acc in)))     // f
+         I                                                 // x
+         I                                                 // initial accumulator value
+         EOF
+         11                                                // LF
+         34                                                // '!'
+         101                                               // 'd'
+         109                                               // 'l'
+         115                                               // 'r'
+         112                                               // 'o'
+         120                                               // 'w'
+         33                                                // ' '
+         45                                                // ','
+         112                                               // 'o'
+         109                                               // 'l'
+         109                                               // 'l'
+         102                                               // 'e'
+         73                                                // 'H'
+
+====Tricks for minimize====
+
+'''TODO'''
+
+====Brainfuck mimic syntax====
+
+'''TODO'''
+
+====Making a polyglot program====
+
+There's a simple approach to make our program a [[Crazy J]]+[[Brainfuck]] polyglot:
+
+    [-.[, CRAZY J PROGRAM ][,,]]+[ BRAINFUCK PROGRAM >]
+    \__________________________/ \____________________/
+             section 1                  section 2
+
+How does it work? If the code is executed by Brainfuck interpreter, the first section of code is skipped because <code>mem[0]</code> is zero. Then the current cell is incremented and the second section is executed. We have to make sure that it wouldn't loop forever, so we move the pointer to knowingly zero cell (<code>[-]</code> could be used as well).
+
+If the code is executed by Crazy J interpreter, the function inside the first section gets two extra arguments: <code>+</code> and the whole second section parsed as Crazy J code (which probably makes no sense). Two extra arguments can't be just dropped (we have no cancellative combinators), but since the input doesn't matter, extra arguments can be combined with the input. The boilerplate code from the diagram above does exactly that.
+
+[[Rail (data structure)]] should be avoided in brainfuck section or used in modified form like this: <code>[>+->]</code> (because <code>[>>]</code> is not a valid code fragment in Crazy J).
+
+====The final result====
+
+</noinclude><pre class="rectwrap">
+[-.[-.+<,->[-.][,-][-.+<,->.[,-][-.+<,-->++<->+[-[--][,-]]]<.->[-.[-.+<,->.[,-]][-[-.],[-.[<.-->+[,-].]<,,][-.]<.-]][,.].][-[-.[-[-[-.]][.+][-,][-.+<,>+<,->[--++][-,-]][<.-->,[-.[<.-->+[,-].]<,,][-.][-[.+<,-]+[-[--++]+]-[-[-[-.+<,-]++]+[<--->[,-]]]]]]][<.-->.[,[,[<.-->,[-.[<.-->+[,-].]<,,>][-.][-.+<,->.[,-]<.->[-.<-->[.+][-,]][-[--[-.]+]+,<-->++-+].]<.-,>[-[-.[-[-.+<,-->++]+[<--->[,-]]]][<.-->,[<.-->[<.--->[.+][-,]]-[<.-->,[-.[<.-->+[,-].]<,,][-.]<.-]<,][-.]][-.+<,->.[,-]]+]<,>[-[-[-.+<,-]++]+[-[--][,-]]]][<.-->,[-.[<.-->+[,-].]<,,][-.]]][-.[-.+<,->.[,-]]<->[-.+<,-->++<->+[-[--][,-]]<.-][<.-->,[-.[<.-->+[,-].]<,,][-.]][-.][-[-.<-][.+][-,]][<.-->[-.[-.[-.<-.->.<->+-][,,]]][-.,[-.<-,]][<.-->,[<.-,,,][-.]]]++[-.[<.-->+[,-].][-.[-.+<,>+<,->[--++][-,-]<.->++.]<,]][-.+<,->.[,-]<.->[<.-->,[-.[<.-->+[,-].]<,,][-.]<.][-[-.+<,-->++]+[<--->[,-]]]+][-.+<,->.[,-]<.->[<.--->[.+][-,]][--[-.]+<->+,<-->++-+][<.-->,[-.[<.-->+[,-].]<,,][-.]<,]][-[.[<.-->,[-.[<.-->+[,-].]<,,][-.]]],[-.+<,->.[,-][-.+<,-->++<->+[-[--][,-]]]]+[-.+<,->.[,-]]][-.+<,->.[,-][-[-.+<,-->++]+[-[--][,-]]]<.->[-.[-.+<,->.[,-]][<.-->,[-.[<.-->+[,-].]<,,][-.]<.-]][,.].]]][-.+<,-->++<->+[-[--][,-]]<.->[-.[-.+<,->.[,-]][-.[<.-->,[-.[<.-->+[,-].]<,,][-.]]<->+<,]][-.].]][,-][-.[-.]]][<.-->,[-.[<.-->+[,-].]<,,][-.]<.->[-.+<,->.[,-]][-.+<,->.[,-]<.->,[-[-.+<,-->++]+[<--->[,-]]]+].][<.-->,[-.[<.-->+[,-].]<,,][-.][-.[-.+<,->.[,-]]<->[-.+<,-<->++<->+[-[--][,-]]<.-][<.--->[.+][-,]],.]]<,][,,]]+[+++++[>++++++[->++>+++>+++>+<<<<]>>-<<<-]>>.[--------<+++++>]>-.>..+++.<<<-.>>>>----.<++++++++.--------.+++.------.<-.<<<+++++[>--<<++>-]>-.<<.>]
+</pre>

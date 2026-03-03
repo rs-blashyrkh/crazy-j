@@ -1,0 +1,143 @@
+<includeonly>Detailed description: [[Crazy J/Truth-machine]]
+</includeonly><noinclude>
+[[Category:Examples]]
+==[[Crazy J]] examples==
+===Truth-machine===
+
+This time let's play [[Golf]] a little bit: we'll not just implement [[Truth-machine]] but also use some tricks to shorten it.
+
+Since [[Crazy J]] is fully IO-capable, we want our program to read input character from standard input and produce real output. Moreover, we'll implement ASCII input and output to make the coding more challenging:
+
+* read single character from standard input;
+* if the character read is '0' then print it and exit;
+* if the character read is '1' then print '1' infinitely;
+* we are free to do anything if the input is neither '0' nor '1'.
+
+Lambda calculus expression for the Truth-machine:
+
+    '0'    = 49
+    '1'    = 50
+    EOF    = 257
+    le     = λ n m . n T (K true) (m T (K false))
+    is_'0' = λ x . le x 49
+    
+    truth-machine = λ input . input (λ ch _ . is_'0' ch (λ f . f '0' (K EOF))
+                                                        (Y λ self f . f '1' self)
+                                    )
+
+Unfortunately, this LC expression can't be compiled to IJ basis:
+
+* several explicit uses of <code>K</code>
+* use of Church booleans (which can never be expressed in IJ)
+* ignored second argument of the second lambda (denoted as <code>_</code>)
+
+Let's start with booleans. We suggest this approach: let <code>true</code> be denoted as <code>I</code> (what can be simpler anyway?) and <code>if</code> be denoted as <code>I</code> as well (or omitted in most cases). In this case then-branch receives the else-branch as a parameter (garbage which we can't get rid of and have to pass it through). What should we use to denote <code>false</code> then? Of course it's <code>T = λ x y . y x = JII</code>: let else-branch receive the then-branch as a (junk) parameter. So, conditional branching looks like this:
+
+    <cond> (λ garbage . <then-branch>) (λ garbage . <else-branch>)
+
+Now let's look at <code>le</code> function (as far as we know, this masterpiece first appeared at The Unlambda home page). Let's write it in this more general form:
+
+    le = λ n m . n T THEN (m T ELSE),  where T = λ x y . y x
+
+and look how it works for pairs of small numbers:
+
+    le 2 3 = (λ n m . n T THEN (m T ELSE)) 2 3 =
+           = 2 T THEN (3 T ELSE) =
+           = T (T THEN) (T (T (T ELSE))) =
+           = T (T (T ELSE)) (T THEN) =
+           = T THEN (T (T ELSE)) =
+           = T (T ELSE) THEN =
+           = THEN (T ELSE)
+
+    le 2 2 = (λ n m . n T THEN (m T ELSE)) 2 2 =
+           = 2 T THEN (2 T ELSE) =
+           = T (T THEN) (T (T ELSE)) =
+           = T (T ELSE) (T THEN) =
+           = T THEN (T ELSE) = 
+           = T ELSE THEN =
+           = THEN ELSE
+
+    le 2 1 = (λ n m . n T THEN (m T ELSE)) 2 1 =
+           = 2 T THEN (1 T ELSE) =
+           = T (T THEN) (T ELSE) =
+           = T ELSE (T THEN) =
+           = T THEN ELSE =
+           = ELSE THEN
+
+    le 3 1 = (λ n m . n T THEN (m T ELSE)) 3 1 =
+           = 3 T THEN (1 T ELSE) =
+           = T (T (T THEN)) (T ELSE) =
+           = T ELSE (T (T THEN)) =
+           = T (T THEN) ELSE
+           = ELSE (T THEN)
+
+'''But that's exactly the booleans we've invented earlier!''' When first argument of <code>le</code> is less than the second argument, the then-branch is evaluated with some junk parameter, otherwise the else-branch is evaluated (again, with a junk parameter).
+
+Let's rewrite the program using the knowledge we've just obtained:
+
+    0-branch = λ garbage f . f '0' (K EOF)
+    1-branch = λ garbage . Y λ self f . f '1' self
+    truth-machine = λ input . input (λ ch _ . ch T 0-branch ('0' T 1-branch))
+
+It's still doesn't compile to IJ because we can't just ignore garbage. We have to pass it through.
+
+    truth-machine = λ input . input (λ ch garbage . ch T 0-branch ('0' T 1-branch) garbage) =
+                  ... eta-reduce ...
+                  = λ input . input (λ ch . ch T 0-branch ('0' T 1-branch)) =
+                  ... reorganize expression using T ...
+                  = λ input . T (λ ch . ch T 0-branch ('0' T 1-branch)) input = 
+                  ... eta-reduce ...
+                  = T (λ ch . ch T 0-branch ('0' T 1-branch)) =
+                  ... use Rule 2 ...
+                  = T (J T ('0' T 1-branch) (λ ch . ch T 0-branch)) =
+                  ... introduce V = λ x y z . z x y =
+                  = T (J T ('0' T 1-branch) (λ ch . V T 0-branch ch)) =
+                  ... eta-reduce ...
+                  = T (J T ('0' T 1-branch) (V T 0-branch)) = 
+                  ... or, maybe, not V but F = λ x y z . z y x? It's shorter in IJ basis ...
+                  = T (J T ('0' T 1-branch) (F 0-branch T))
+
+Now both <code>0-branch</code> and <code>1-branch</code> get extra garbage parameter:
+
+    0-branch = λ garbage1 garbage2 f . f '0' (λ g . g EOF <something with garbage1 and garbage2>)
+
+    1-branch = λ garbage1 garbage2 . (Y λ self g1 g2 f . f '1' (self g1 g2)) garbage1 garbage2 =
+             ... eta-reduction and alpha-conversion ...
+             = Y λ self garbage1 garbage2 f . f '1' (self garbage1 garbage2)
+
+This should work but still requires abstraction elimination. But let's stop now and look at those two lumps of garbage we need to pass through in both functions. Can we pack them into single lump to reduce number of abstraction eliminations?
+
+    garbage_packer1 = λ f g1 g2 . f (g1 g2) = B
+
+    garbage_packer2 = λ f g1 g2 . f (g2 g1) = Q<sub>1</sub>
+
+Both pack two lumps of garbage into single one and pass to a function, but the second one's IJ representation is shorter. Let's use it.
+
+    0-branch = Q<sub>1</sub> (λ g f1 . f1 '0' (λ f2 . f2 EOF g)) =
+             = Q<sub>1</sub> (λ g f1 . f1 '0' (λ f2 . V EOF g f2)) =
+             = Q<sub>1</sub> (λ g f1 . f1 '0' (V EOF g)) =
+             = Q<sub>1</sub> (λ g f1 . V '0' (V EOF g) f1) =
+             = Q<sub>1</sub> (λ g . V '0' (V EOF g)) =
+             = Q<sub>1</sub> (λ g . B (V '0') (V EOF) g) =
+             = Q<sub>1</sub> (B (V '0') (V EOF)) =
+             ... with Q instead of B it would be shorter ...
+             = Q<sub>1</sub> (Q (V EOF) (V '0'))
+
+    1-branch = Q<sub>1</sub> (Y λ self g f . f '1' (self g)) =
+             = Q<sub>1</sub> (Y λ self g f . V '1' (self g) f) =
+             = Q<sub>1</sub> (Y λ self g . V '1' (self g)) =
+             = Q<sub>1</sub> (Y λ self g . B (V '1') self g) =
+             = Q<sub>1</sub> (Y λ self . B (V '1') self) =
+             = Q<sub>1</sub> (Y (B (V '1')))
+
+The final result:
+
+</noinclude><pre class="rectwrap">
+```jii```j``jii`````j``jiii``j```jii``````j```jii```j``ji``j``jiii``jii``jijii``jii````j`j``jii````j``ji``j`j``jiii`j``jii`jij``ji``jii```j`j``jii``ji``jii``ji`j`j``jii`````j``ji``j`j``jiii`j``jii`jij````j`j``jii``ji``jii``ji`j`j``jii```j``ji``j``jiii``jii``jiji``jii``ji``````j``j`j`j```j``j`jiii``jiii``jiiji`````j`j`j`j``jiii``jiji``j`jii````j``jii``ji``jii`j`j``jii````j``j```jii`j`j``jii``jiiij`````j``ji``j`j``jiii`j``jii`jij````j`j``jii``ji``jii``ji`j`j``jii```j``jiii``j```jii``````j```jii```j``ji``j``jiii``jii``jijii``jii````j`j``jii````j``ji``j`j``jiii`j``jii`jij``ji``jii```j`j``jii``ji``jii``ji`j`j``jii`````j``ji``j`j``jiii`j``jii`jij````j`j``jii``ji``jii``ji`j`j``jii```j``ji``j``jiii``jii``jiji`````j``jiii`j`j``jii``ji`````j`j`j``jii```jiii`j`ji````j``j```jii`j`j``jii``jiiij`````j``ji``j`j``jiii`j``jii`jij````j`j``jii``ji``jii``ji`j`j``jii````j```jii````j```jii```j``ji``j``jiii``jii``jijii``jiiii``jii````j``j```jii`j`j``jii``jiiij```j``jiii``j```jii``````j```jii```j``ji``j``jiii``jii``jijii``jii````j`j``jii````j``ji``j`j``jiii`j``jii`jij``ji``jii```j`j``jii``ji``jii``ji`j`j``jii`````j``ji``j`j``jiii`j``jii`jij````j`j``jii``ji``jii``ji`j`j``jii```j``ji``j``jiii``jii``jiji``jii
+</pre><noinclude>
+
+Summing up the tricks we've used:
+
+* Packing garbage into single lump makes it easier to pass through.
+* When two arguments of V or B combinator are known, it's worth replacing these combinators with their counterparts whose IJ representation is shorter.
+</noinclude>

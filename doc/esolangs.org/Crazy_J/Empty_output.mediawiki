@@ -1,0 +1,30 @@
+<includeonly>Detailed description: [[Crazy J/Empty output]]
+</includeonly><noinclude>
+[[Category:Examples]]
+==[[Crazy J]] examples==
+
+===Simplest example - program which ignores its input and prints nothing===
+
+Lambda calculus expression of the program:
+
+    λ input . λ f . f 257 ?  (where ? is anything we like since no one looks there anyway)
+
+We have to get rid of <code>input</code> somehow since there's no K combinator to destroy it. The simplest thing that can be done is to ''sweep all dust <s>under the carpet</s> beyond EOF''. So, we have:
+
+      λ input . λ f . f 257 input =
+      ... just rewrite ...
+    = λ input f . f 257 input =
+      ... let's introduce V = λ x y z . z x y ...
+    = λ input f . V 257 input f =
+      ... eta-reduce ...
+    = V 257
+
+Church numeral <code>257</code> can be expressed as <code>256+1</code>, whereas <code>256 = 4 4 = M 4</code>.
+
+Finally, replacing <code>V</code> and <code>257</code> with their IJ expressions, we get:
+</noinclude>
+<pre class="rectwrap">
+````j``j```jii`j`j``jii``jiiij```````j`j````jjii`j`j``jiii`j```jjiijj```j``jii``ji``jii`j`j``jii````j```jii```j``ji```ji``j``jiiii```jjii``j`jijii``jii
+</pre>
+
+This program does nothing at all!

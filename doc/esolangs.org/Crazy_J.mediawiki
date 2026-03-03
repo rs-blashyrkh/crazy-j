@@ -1,0 +1,284 @@
+{{infobox proglang
+|name=Crazy J
+|paradigms=[[:Category:Functional_paradigm|functional]]
+|author=[[User:Blashyrkh]]
+|year=[[:Category:2025|2025]]
+|class=[[:Category:Turing complete|Turing complete]]
+|refimpl=[https://github.com/rs-blashyrkh/crazy-j Github]
+|influence=[[Lazy K]] <br>[[Unlambda]] 
+|files=<code>.crazy</code>
+}}
+
+'''Crazy J''', designed and implemented by [[User:Blashyrkh]] in late 2025, is a crippled little brother of [[Lazy K]]. It resembles the syntax of its older brother (two of them, actually) and adds a new one, uses the same IO model (with tiny modification), but based on different set of combinators. Which makes it slightly... different.
+
+To understand the semantics (and, probably, even the syntax) of the language it's recommended to get familiar with [[Lambda calculus]] and [[Combinator calculus]] first.
+
+In some sense Crazy J may be considered a joke language, but it was created to get an answer to the serious question: is it possible to create Turing-complete combinator-based functional language using a non-complete set of combinators? And the answer is "yes"!
+
+==Instructions==
+
+Crazy J is based on '''non-complete''' IJ basis:
+
+    I = λ x . x
+    J = λ x y z w . x y (x w z)
+
+Nevertheless, Crazy J is proven to be Turing-complete (by implementing [[Cyclic tag system]] in it).
+
+==Syntax==
+
+Crazy J supports three different syntaxes.
+* Unlambda-like parenthesis-free syntax (inspired by [[Unlambda]] and [[Lazy K]]). A typical program looks like this (but usually much longer):
+<pre class="rectwrap">
+````j``j```jii`j`j``jii``jiiij```````j`j````jjii`j`j``jiii`j```jjiijj```j``jii``ji``jii`j`j``jii````j```jii```j``ji```ji``j``jiiii```jjii``j`jijii``jii
+</pre>
+* Combinator calculus syntax (inspired by [[Lazy K]]). The same program:
+<pre class="rectwrap">
+J(J(JII(J(J(JII))))(JII))IJ(J(J(JJII(J(J(JII)))))I(J(JJII))JJ(J(JII)(JI(JII))(J(J(JII))))(J(JII(J(JI(JI(J(JII)I)I))(JJII)(J(JI)J)))II(JII)))
+</pre>
+* [[Brainfuck]] mimic syntax (inspired by [[MIBBLLII]]). The same program (reminds of something, eh?):
+<pre class="rectwrap">
+-.<-.->.<->+-[--++[-.<-]<-->+[--++<-]--[-.[,.][-.<-]][-.+<,>+<,->[--++][-,-]<.->++.]]
+</pre>
+
+Whitespace is ignored. The rest of a string starting from <code>#</code> until the end of line is a comment and is ignored as well.
+
+Contrary to Lazy K, Crazy J doesn't allow to mix styles: the actual syntax used is determined by the first non-whitespace and non-comment character. An empty program is treated as an identity function ([[cat]]).
+
+===Unlambda-like syntax===
+
+          Syntax                            Semantics
+    
+    Expr  ::= "i"                       (λ x . x)
+            | "j"                       (λ xyzw . xy(xwz))
+            | "`" Expr1 Expr2           (Expr1 Expr2)
+
+===Combinator calculus syntax===
+
+          Syntax                            Semantics
+    
+    Expr  ::= "I"                       (λ x . x)
+            | "J"                       (λ xyzw . xy(xwz))
+            | Expr1 Expr2 ... ExprN     ((Expr1 Expr2) ... ExprN)
+            | "(" Expr ")"              Expr
+
+===[[Brainfuck]] mimic syntax===
+
+Written using this syntax, Crazy J program looks like valid (but not necessarily ever halting) [[Brainfuck]] program.
+
+{| class="wikitable"
+|+ Brainfuck mimic syntax
+|-
+! Character !! Meaning !! CC syntax equivalent
+|-
+| > || Set parsing order<sup>*</sup> to ''left-to-right'' (the default) || ''None''
+|-
+| < || Set parsing order<sup>*</sup> to ''right-to-left'' || ''None''
+|-
+| [ || Start of sub-expression || <code>(</code>
+|-
+| ] || End of sub-expression || <code>)</code>
+|-
+| - || λ x y z w . x y (x w z) || <code>J</code>
+|-
+| + || λ x . x || <code>I</code>
+|-
+| , || Shortcut for <code>[>-+]</code> || <code>(JI)</code>
+|-
+| . || Shortcut for <code>[>-++]</code> || <code>(JII)</code>
+|}
+<sup>*</sup>Parsing order is a unique concept of this syntax mode. If ''left-to-right'' parsing order is active, source fragment <code>ABC</code> means <code>(AB)C</code>. In ''right-to-left'' parsing order the same string <code>ABC</code> is interpreted as <code>C(BA)</code>. Parsing order doesn't change when <code>[</code> is encountered ("inherited" by sub-expression), but if it's changed between <code>[</code> and <code>]</code>, it's restored after <code>]</code> (similar to environment variables of Unix processes: inherited by children, never passed to parent).
+
+==IO model==
+
+''Almost'' exactly as of Lazy K. To be precise:
+
+* Input is Church list of Church numerals where each element represents single byte of input stream. Contrary to Lazy K, ASCII character 0 is represented as Church numeral 1, ASCII character 1 - as Church numeral 2, and so on. The input stream is terminated with Church value 257 infinitely repeated.
+* The program is called as a function with the input list passed as a parameter.
+* Result of program evaluation must be a Church list of Church numerals. First value greater than or equal to 257 marks the end of output. This value minus 257 is the program's exit code. ''Output list is never examined beyond EOF'', and it's not just implementation detail as of Lazy K. It's essential part of Crazy J specification.
+* Input is as lazy as possible: next byte is read from standard input only when it's needed to apply it to an argument.
+
+Church numeral 0 is impossible in IJ basis, and therefore all input codes are incremented on input and decremented back before output.
+
+==Lack of K combinator==
+
+Whereas Lazy K's motto is "there's more than one way to do it", Crazy J's motto is "there's no way to do it, but we do it anyway."
+
+To be precise:
+
+* No constant function (known as "K combinator")
+* No Church booleans
+* No Church zero
+* No Scott numerals
+* No familiar list access primitives like <code>car</code>, <code>cdr</code> and <code>nth</code>
+* You'll have to find IJ representation of your favorite combinators (but we can help you here: we bruteforced several common ones)
+
+==Some common combinators in IJ basis==
+
+We performed an exhaustive computer search for expressions of common combinators in IJ basis. The table will be appended by new findings since the search is still on.
+
+{| class="wikitable"
+|+ Linear combinators
+|-
+! Combinator name !! LC expression !! Bruteforced Crazy J expression
+|-
+| T || λ x y . y x || <code>``jii</code>
+|-
+| Q<sub>1</sub> || λ x y z . x (z y) || <code>`ji</code>
+|-
+| R || λ x y z . y z x || <code>`j``jii</code>
+|-
+| Q<sub>4</sub> || λ x y z . z (y x) || <code>``ji``jii</code>
+|-
+| Q<sub>3</sub> || λ x y z . z (x y) || <code>``j``ji``jiii</code>
+|-
+| Q<sub>2</sub> || λ x y z . y (z x) || <code>```j``jii`ji`j``jii</code>
+|-
+| F || λ x y z . z y x || <code>```j``jiii`j`j``jii</code>
+|-
+| C || λ x y z . x z y || <code>```j``jii`j``jii`j``jii</code>
+|-
+| Q || λ x y z . y (x z) || <code>```j`j`j``jii```jiii`j`ji</code>
+|-
+| B || λ x y z . x (y z) || <code>```j``jii``ji``jii`j`j``jii</code>
+|-
+| V || λ x y z . z x y || <code>```j``j```jii`j`j``jii``jiiij</code>
+|-
+| F* || λ x y z w . x w z y || <code>```j``jii`j`j``jii`j``jii</code>
+|-
+| V* || λ x y z w . x z y w || <code>```j``jii`j``jii````jiji`ji</code>
+|-
+| C* || λ x y z w . x y w z || <code>```j`j``jii`j``jii``ji`j``jii</code>
+|-
+| G || λ x y z w . x w (y z) || <code>```j``jii``ji`j``jii`j`j``jii</code>
+|-
+| B<sub>1</sub> || λ x y z w . x (y z w) || <code>````j```jj``j```jiiii`j``jiiiij</code>
+|-
+| D (B') || λ x y z w . x y (z w) || <code>```j`j``jii``ji``jii``ji`j`j``jii</code>
+|-
+| R* || λ x y z w . x z w y || <code>```j`j`j``jiii```j``j```jiiij`ji`jj</code>
+|-
+| C' || λ x y z w . x (y w) z || <code>```j```j`j`j`j``jiii`j`j`j`j``jiii`jj</code>
+|-
+| B<sub>3</sub> || λ x y z w . x (y (z w)) || <code>```j`j``jii``jji```j``ji`jii`j`j``jii</code>
+|}
+
+{| class="wikitable"
+|+ Duplicative combinators
+|-
+! Combinator name or expression !! LC expression !! Bruteforced Crazy J expression !! Notes
+|-
+| BJT || λ x y z w . y x (w x z) || <code>```j``jii``jii``jij</code> || Occurs quite often during abstraction elimination
+|-
+| C(BJT)T || λ x y z . z x y x || <code>````j```jj``jiiii``jiji</code> || 
+|-
+| BC(C(BJT)T) || λ x y z . y x z x || <code>````j`j``jii`ji```j``jjii``jiii</code> ||
+|-
+| W || λ x y . x y y || <code>````j``ji``j`j``jiii`j``jii`jij</code> ||
+|-
+| W' || λ x y . y x x || <code>```j``ji``j``jiii`j``jii``jij</code> ||
+|-
+| M (sometimes called U) || λ x . x x || <code>````j`j``ji```jiiii``j```jjiiij</code> ||
+|-
+| M<sub>2</sub> || λ x y . x y (x y) || <code>````````jjji`j`j```j``j`jiii``jiiiiji</code> ||
+|-
+| L || λ x y . x (y y) || <code>`````j`j`j`j``jiii``jiji``j`jii</code> ||
+|-
+| O || λ x y . y (x y) || <code>```j`j``jiii```j```j``j`jiiiiij</code> ||
+|-
+| U || λ x y . y (x x y) || <code>```j`j```j``j`j```jiiiii`jii``jj`jj</code> ||
+|-
+| || λ x . x x x || <code>`````j`j```j```jj`j``jiiii`jiiiji</code> || No official name, we call it XXX or X<sup>3</sup>
+|-
+| S || λ x y z . x z (y z) || <code>`````j`j````jjii`j`j``jiii`j```jjiijj</code> ||
+|-
+| H || λ x y z . x y z y || <code>```j`j``jiii```j```j``j`jiiii`j``jiij</code> ||
+|-
+| Y = M<sub>2</sub>L || λ x . x (Y x) || <code>`````j``j`j`j```j``j`jiii``jiii``jiiji`````j`j`j`j``jiii``jiji``j`jii</code> ||
+|}
+
+{| class="wikitable"
+|+ Special
+|-
+! Combinator name or expression !! LC expression !! Bruteforced Crazy J expression !! Notes
+|-
+| Church 1 || λ f x . f x || <code>i</code> ||
+|-
+| Church 2 || λ f x . f (f x) || <code>```j``ji``j``jiii``jii``jij</code> ||
+|-
+| Church 3 || λ f x . f (f (f x)) || <code>```j```j`j``ji``j``jiiiiii``j`jj``jij</code> ||
+|-
+| Church 4 || λ f x . f (f (f (f x))) || <code>```j``ji```ji``j``jiiii```jjii``j`jij</code> ||
+|-
+| ++ || λ n f x . f (n f x) ||<code>````j`j``jii`ji``ji``ji``j``jii````j`j``jiii``jij``jii`j``jii</code>
+ || 
+|-
+| Mx || x x || <code>````j```jii x ii``jii</code> || Version of M combinator with inlined argument
+|-
+| n+1 || λ f x . f (n f x) || <code>```j``jii````j`j``jiii``jij``jii``ji``j``jii n</code> || Version of ++ with inlined <code>n</code> argument.
+|}
+
+==Abstraction elimination rules==
+
+We worked out the following rules of abstraction elimination. Still you're free to try and reorder variables using various combinators and then use eta-reduction (examples below use this approach).
+
+===Rule 1===
+
+    λ x . '''''F'''''x ≡ '''''F''''' (if x is not used in '''''F''''')
+
+===Rule 2===
+
+    λ x . '''''F(x)G''''' ≡ JT'''''G'''''(λ x . '''''F(x)''''')  (T = λxy.yx = JII, '''''F(x)''''' is a function of x, '''''G''''' is not)
+
+===Rule 3===
+
+    λ x . '''''FG(x)''''' ≡ JT(JI'''''F''''')(JT)(λ x . '''''G(x)''''')  (T = JII, '''''G(x)''''' is a function of x, '''''F''''' is not)
+
+===Rule 4 (obsolete)===
+
+    λ x . '''''F(x)G(x)''''' ≡ JTT(JT(λ x . '''''G(x)''''')(JT(λ x . '''''F(x)''''')(JTT(JIJ))))  (T = JII, '''''F(x)''''' and '''''G(x)''''' are both functions of x)
+
+''Note: this rule was worked out before we bruteforced an expression for <code>S</code> combinator. It's obsolete now, see '''rule 5'''''.
+
+===Rule 5===
+
+    λ x . '''''F(x)G(x)''''' ≡ S(λ x . '''''F(x)''''')(λ x . '''''G(x)''''')
+    (S = J(J(JJII(J(J(JII)))))I(J(JJII))JJ, '''''F(x)''''' and '''''G(x)''''' are both functions of x)
+
+==Examples==
+
+===Empty output===
+{{:Crazy_J/Empty_output}}
+
+===Truth-machine===
+{{:Crazy J/Truth-machine}}
+
+===Hello, world!===
+{{:Crazy J/Hello, world!}}
+
+===Reverse input===
+{{:Crazy J/Reverse input}}
+
+===Sequential tag system===
+{{:Crazy J/Sequential tag system}}
+
+===Cyclic tag system===
+{{:Crazy J/Cyclic tag system}}
+
+===QUINE===
+{{:Crazy J/QUINE}}
+
+==See also==
+
+* [[Lazy K]]
+* [[Unlambda]]
+
+==External resources==
+
+* [[https://github.com/rs-blashyrkh/crazy-j Reference implementation in C]]
+
+[[Category:Languages]]
+[[Category:Implemented]]
+[[Category:Turing tarpits]]
+[[Category:Turing complete]]
+[[Category:Functional paradigm]]
+[[Category:2025]]

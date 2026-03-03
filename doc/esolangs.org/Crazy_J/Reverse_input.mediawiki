@@ -1,0 +1,28 @@
+==[[Crazy J]] examples==
+===Reverse input===
+
+One more exercise before serious work.
+
+    init_list  = λ v g f . f v g = V
+    
+    push_front = λ v l g f . f v (l g) = D V
+    
+    reverse = λ<sub>1</sub> input . input (Y (λ<sub>2</sub> self l g ch tail . ch T (λ<sub>3</sub> g1 g2 . tail (self (push_front ch l) (g2 g1)))
+                                                       (256 T (Q1 l)) g)
+                                  (init_list EOF)
+                                  I
+                               )
+
+<code>init_list</code> and <code>push_front</code> primitives are designed not only to provide an access to stored items but also to pass garbage through and put it finally after the last element (the one put first).
+
+Lambdas are marked with indices to reference them from the following explanation text:
+
+* λ<sub>3</sub> packs lumps of garbage and makes recursive call of λ<sub>2</sub> by passing <code>self</code> as a parameter to <code>tail</code>.
+* λ<sub>2</sub> is called to handle each character of input. First parameter (<code>self</code>) is provided by <code>Y</code>, <code>l</code> (currently accumulated reversed list) and <code>g</code> (garbage) - by λ<sub>3</sub> (recursive call) or by λ<sub>1</sub> (topmost call), <code>ch</code> and <code>tail</code> - by input list element.
+* λ<sub>1</sub> is an entry point which provides initial values for accumulated list and garbage.
+
+Compiled program:
+
+</noinclude><pre class="rectwrap">
+```jii````````j``j`j`j```j``j`jiii``jiii``jiiji`````j`j`j`j``jiii``jiji``j`jii`````j``jii``ji``jii`j`j``jii````j``ji``j`j``jiii`j``jii`jij```j``jii``````j`j``jii``ji``jii``ji`j`j``jii````j```jii````j```jii```j``ji``j``jiii``jii``jijii``jiiii``jii``jii`ji````j`j``jii``ji``jii``ji`j`j``jii`````j``jii``ji``jii`j`j``jii```j``jii`j``jii`j``jii`````j``jii``ji``jii`j`j``jii``````j```jj``j```jiiii`j``jiiiij```j``jii`j`j``jii`j``jii`````j```jj``j```jiiii`j``jiiiij```j``jii`j`j``jii`j``jii````j``jii`j`j``jii`j``jii`````j``ji``j`j``jiii`j``jii`jij`````j``jii`j``jii`j``jii`````j``jii``ji``jii`j`j``jii````j```jj``j```jiiii`j``jiiiij```ji````j```jj``j```jiiii`j``jiiiij``jii``````j```jj``j```jiiii`j``jiiiij````j``jii`j`j``jii`j``jii`````j``jii``ji``jii`j`j``jii`````j```jj``j```jiiii`j``jiiiij`ji````j```jj``j```jiiii`j``jiiiij````j`j``jii``ji``jii``ji`j`j``jii```j``j```jii`j`j``jii``jiiij````j``j```jii`j`j``jii``jiiij`````j``ji``j`j``jiii`j``jii`jij````j`j``jii``ji``jii``ji`j`j``jii````j```jii````j```jii```j``ji``j``jiii``jii``jijii``jiiii``jiii
+</pre>
