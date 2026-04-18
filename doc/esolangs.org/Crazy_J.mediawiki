@@ -110,11 +110,52 @@ To be precise:
 * No Church zero
 * No Scott numerals
 * No familiar list access primitives like <code>car</code>, <code>cdr</code> and <code>nth</code>
-* You'll have to find IJ representation of your favorite combinators (but we can help you here: we bruteforced several common ones)
 
-==Some common combinators in IJ basis==
+==Abstraction elimination rules==
 
-We performed an exhaustive computer search for expressions of common combinators in IJ basis. The table will be appended by new findings since the search is still on.
+As usual for languages of this family, abstraction elimination process is started from the most deeply nested lambda until no lambdas left. All free variables of the lambda in question are considered constants.
+
+There are three approaches to abstraction elimination. They all share the same common property/drawback (which is a consequence of the chosen combinator basis): <code>λ x . CONST</code> can never be expressed in IJ basis. In practice it means that if your program needs it then you should look for alternative lambda expression for your program (see Examples section for the general idea how to do it).
+
+===Straighforward approach: BCS===
+
+This approach uses known IJ expressions for <code>B</code>, <code>C</code> and <code>S</code> combinators:
+
+    B = λ x y z . x (y z) = J(JII)(JI(JII))(J(J(JII)))
+    C = λ x y z . x z y = J(JII)(J(JII))(J(JII))
+    S = λ x y z . x z (y z) = J(J(JI(J(J(J(JII)))I)))I(J(JJII))JJ
+
+====Rule 1: eta reduction====
+
+    λ x . F x ≡ F (if x is not used in F)
+
+====Rule 2: B rule====
+
+    λ x . F G(x) ≡ B F (λ x . G(x)),  where G(x) is a function of x, F is not
+
+Alternatively, it can be re-written using <code>Q</code> combinator (IJ expression for <code>Q</code> is a bit shorter):
+
+    λ x . F G(x) ≡ Q (λ x . G(x)) F,  where Q = λ x y z . y (x z) = J(J(J(JII)))(JIII)(J(JI))
+
+Even shorter IJ expression can be produced if this inlined version of <code>Q</code> combinator is used:
+
+    Q x y = B y x = λ z . y (x z) = J (J I I) x (J I y)
+
+====Rule 3: C rule====
+
+    λ x . F(x) G ≡ C (λ x . F(x)) G,  where F(x) is a function of x, G is not
+
+Alternatively, it can be re-written using <code>R</code> combinator (IJ expression for <code>R</code> is much shorter):
+
+    λ x . F(x) G ≡ R G (λ x . F(x)),  where R = λ x y z . y z x = J(JII)
+
+====Rule 4: S rule====
+
+    λ x . F(x) G(x) ≡ S (λ x . F(x)) (λ x . G(x)),  where F(x) and G(x) are both functions of x
+
+===BCS+===
+
+This approach uses known IJ expressions for many common combinators, while using <code>B</code>, <code>C</code> and <code>S</code> rules as a fallback.
 
 {| class="wikitable"
 |+ Linear combinators
@@ -167,9 +208,9 @@ We performed an exhaustive computer search for expressions of common combinators
 |-
 ! Combinator name or expression !! LC expression !! Bruteforced Crazy J expression !! Notes
 |-
-| BJT || λ x y z w . y x (w x z) || <code>```j``jii``jii``jij</code> || Occurs quite often during abstraction elimination
+| BJT || λ x y z w . y x (w x z) || <code>```j``jii``jii``jij</code> ||
 |-
-| C(BJT)T || λ x y z . z x y x || <code>````j```jj``jiiii``jiji</code> || 
+| C(BJT)T || λ x y z . z x y x || <code>````j```jj``jiiii``jiji</code> ||
 |-
 | BC(C(BJT)T) || λ x y z . y x z x || <code>````j`j``jii`ji```j``jjii``jiii</code> ||
 |-
@@ -217,32 +258,98 @@ We performed an exhaustive computer search for expressions of common combinators
 | n+1 || λ f x . f (n f x) || <code>```j``jii````j`j``jiii``jij``jii``ji``j``jii n</code> || Version of ++ with inlined <code>n</code> argument.
 |}
 
-==Abstraction elimination rules==
+===IJ approach===
 
-We worked out the following rules of abstraction elimination. Still you're free to try and reorder variables using various combinators and then use eta-reduction (examples below use this approach).
+This approach was developed specifically for IJ basis. The abstraction elimination is performed in the following order:
 
-===Rule 1===
+# Find the innermost lambda.
+# Count a number of occurrences of bound variable.
+# If no occurrences of bound variable are found in lambda expression then this lambda can't be expressed in IJ basis. '''ABORT'''
+# If there's exactly one occurrence of bound variable, goto step 6.
+# If there are more than one occurrences of bound variable, goto step 9.
+# If bound variable is inside the ()-subexpression, it must be moved out using one or several applications of '''Q1 rule'''.
+# If bound variable is not at the rightmost place of the expression then it must be moved there using '''T''', '''R''' and '''JR rules'''.
+# Apply eta-reduction, repeat from step 1.
+# Find any two occurrences of the bound variable (the closer to each other the better). If both occurrences share identical context (say, <code>J I I x</code> in both places), then the whole repeating subexpression can be deduplicated.
+# Use permutating rules to move two occurrences of the variable to positions suitable for one of deduplicating rules (usually '''J-T deduplicating rule''' is the universal fallback).
+# Apply deduplicating rule.
+# Repeat from step 2.
 
-    λ x . '''''F'''''x ≡ '''''F''''' (if x is not used in '''''F''''')
+====Permutating rules====
 
-===Rule 2===
+The aim of these rules is to move bound variable either to the rightmost position of the expression (to apply eta-reduction rule) or to a position suitable for one of deduplicating rules.
 
-    λ x . '''''F(x)G''''' ≡ JT'''''G'''''(λ x . '''''F(x)''''')  (T = λxy.yx = JII, '''''F(x)''''' is a function of x, '''''G''''' is not)
+=====Q1 rule=====
 
-===Rule 3===
+This rule can be used to extract bound variable from ()-subexpression:
 
-    λ x . '''''FG(x)''''' ≡ JT(JI'''''F''''')(JT)(λ x . '''''G(x)''''')  (T = JII, '''''G(x)''''' is a function of x, '''''F''''' is not)
+    a (x b) c d ... = Q1 a b x c d ...,  where Q1 = JI
+       \                     ^
+        \____________________|
 
-===Rule 4 (obsolete)===
+Here's an example of multiple applications of the rule:
 
-    λ x . '''''F(x)G(x)''''' ≡ JTT(JT(λ x . '''''G(x)''''')(JT(λ x . '''''F(x)''''')(JTT(JIJ))))  (T = JII, '''''F(x)''''' and '''''G(x)''''' are both functions of x)
+    a (x b c) d e ... = Q1 a c (x b) d e ... = Q1 (Q1 a c) b x d e ...
 
-''Note: this rule was worked out before we bruteforced an expression for <code>S</code> combinator. It's obsolete now, see '''rule 5'''''.
+=====T rule=====
 
-===Rule 5===
+This rule can be used to move bound variable from the leftmost position to the right by 1 position:
 
-    λ x . '''''F(x)G(x)''''' ≡ S(λ x . '''''F(x)''''')(λ x . '''''G(x)''''')
-    (S = J(J(JJII(J(J(JII)))))I(J(JJII))JJ, '''''F(x)''''' and '''''G(x)''''' are both functions of x)
+    x a b ... = T a x b ...,  where T = JII
+    \               ^
+     \______________|
+
+=====R rule=====
+
+This rule can be used to move bound variable to the right by 1 position:
+
+    a x b c d ... = R b a x c d ...,  where R = JT = J(JII)
+      \                   ^
+       \__________________|
+
+=====JR rule ("castling move")=====
+
+This rule can be used to move bound variable to the right by 2 positions. It's more compact that two application of R rule (5 combinators instead of 2x4):
+
+    a x b c d e ... = J R c a b x d e ...
+      \                         ^
+       \________________________|
+
+====Deduplicating rules====
+
+All deduplicating rules are used to reduce number of occurrences of bound variable by 1.
+
+=====J-T deduplicating rule=====
+
+This is the most commonly used deduplicating rule:
+
+    a x (b x c) d e ... = J (T x) a c b d e ...,  where T = JII
+
+The important special case:
+
+    a x (b x) c d ... = a x (T x b) c d ... = J (T x) a b T c d ...
+
+=====J-R deduplicating rule=====
+
+    a (b c x) x d e ... = J (R x) a c b d e ...
+
+The important special cases:
+
+    a x x = a (I I x) x = J (R x) a I I
+    x x = I (I I x) x = J (R x) I I I
+    x x x = J (R x) x I I = J (J T x) x I I = J (R x) J T J I I
+
+=====J-Q1 deduplicating rule=====
+
+Almost never happens to be applicable because no permutating rule can place bound variable to the leftmost place of subexpression. Nevertheless, the pattern may occur initially, so the rule exists:
+
+    x (x (a b) c) d e ... = J (Q1 x) c a b d e ...
+
+=====J deduplicating rule=====
+
+Another almost-never-happening rule:
+
+    x a (x b c) d e ... = J x a c b d e ...
 
 ==Examples==
 
