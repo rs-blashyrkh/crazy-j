@@ -117,6 +117,16 @@ As usual for languages of this family, abstraction elimination process is starte
 
 There are three approaches to abstraction elimination. They all share the same common property/drawback (which is a consequence of the chosen combinator basis): <code>λ x . CONST</code> can never be expressed in IJ basis. In practice it means that if your program needs it then you should look for alternative lambda expression for your program (see Examples section for the general idea how to do it).
 
+===Rule 0: eta reduction===
+
+It doesn't matter what approach is used, this is the only rule that actually eliminates an abstraction (i.e. gets rid of <code>λ</code> in an expression):
+
+    λ x . F x ≡ F (if x is not used in F)
+
+Important (and obvious) special case:
+
+    λ x . x ≡ I
+
 ===Straighforward approach: BCS===
 
 This approach uses known IJ expressions for <code>B</code>, <code>C</code> and <code>S</code> combinators:
@@ -125,11 +135,7 @@ This approach uses known IJ expressions for <code>B</code>, <code>C</code> and <
     C = λ x y z . x z y = J(JII)(J(JII))(J(JII))
     S = λ x y z . x z (y z) = J(J(JI(J(J(J(JII)))I)))I(J(JJII))JJ
 
-====Rule 1: eta reduction====
-
-    λ x . F x ≡ F (if x is not used in F)
-
-====Rule 2: B rule====
+====Rule 1: B rule====
 
     λ x . F G(x) ≡ B F (λ x . G(x)),  where G(x) is a function of x, F is not
 
@@ -141,7 +147,7 @@ Even shorter IJ expression can be produced if this inlined version of <code>Q</c
 
     Q x y = B y x = λ z . y (x z) = J (J I I) x (J I y)
 
-====Rule 3: C rule====
+====Rule 2: C rule====
 
     λ x . F(x) G ≡ C (λ x . F(x)) G,  where F(x) is a function of x, G is not
 
@@ -149,7 +155,7 @@ Alternatively, it can be re-written using <code>R</code> combinator (IJ expressi
 
     λ x . F(x) G ≡ R G (λ x . F(x)),  where R = λ x y z . y z x = J(JII)
 
-====Rule 4: S rule====
+====Rule 3: S rule====
 
     λ x . F(x) G(x) ≡ S (λ x . F(x)) (λ x . G(x)),  where F(x) and G(x) are both functions of x
 
