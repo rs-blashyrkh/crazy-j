@@ -19,12 +19,10 @@ We have to get rid of <code>input</code> somehow since there's no K combinator t
       ... eta-reduce ...
     = V 257
 
-Church numeral <code>257</code> can be expressed as <code>256+1</code>, whereas <code>256 = 4 4 = M 4</code>.
-
 Finally, replacing <code>V</code> and <code>257</code> with their IJ expressions, we get:
 </noinclude>
 <pre class="rectwrap">
-````j``j```jii`j`j``jii``jiiij```````j`j````jjii`j`j``jiii`j```jjiijj```j``jii``ji``jii`j`j``jii````j```jii```j``ji```ji``j``jiiii```jjii``j`jijii``jii
+````j``j```jii`j`j``jii``jiiij````j`j``jiij``ji``ji```ji``j``jiii````j``j``jii```j``ji```ji``j``jiiii```jjii``j`jijiii``jii
 </pre>
 
 This program does nothing at all!
