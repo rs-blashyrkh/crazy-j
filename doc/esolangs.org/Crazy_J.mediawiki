@@ -243,27 +243,6 @@ This approach uses known IJ expressions for many common combinators, while using
 | Y = M<sub>2</sub>L || λ x . x (Y x) || <code>`````j``j`j`j```j``j`jiii``jiii``jiiji`````j`j`j`j``jiii``jiji``j`jii</code> ||
 |}
 
-{| class="wikitable"
-|+ Special
-|-
-! Combinator name or expression !! LC expression !! Bruteforced Crazy J expression !! Notes
-|-
-| Church 1 || λ f x . f x || <code>i</code> ||
-|-
-| Church 2 || λ f x . f (f x) || <code>```j``ji``j``jiii``jii``jij</code> ||
-|-
-| Church 3 || λ f x . f (f (f x)) || <code>```j```j`j``ji``j``jiiiiii``j`jj``jij</code> ||
-|-
-| Church 4 || λ f x . f (f (f (f x))) || <code>```j``ji```ji``j``jiiii```jjii``j`jij</code> ||
-|-
-| ++ || λ n f x . f (n f x) ||<code>````j`j``jii`ji``ji``ji``j``jii````j`j``jiii``jij``jii`j``jii</code>
- || 
-|-
-| Mx || x x || <code>````j```jii x ii``jii</code> || Version of M combinator with inlined argument
-|-
-| n+1 || λ f x . f (n f x) || <code>```j``jii````j`j``jiii``jij``jii``ji``j``jii n</code> || Version of ++ with inlined <code>n</code> argument.
-|}
-
 ===IJ approach===
 
 This approach was developed specifically for IJ basis. The abstraction elimination is performed in the following order:
@@ -356,6 +335,62 @@ Almost never happens to be applicable because no permutating rule can place boun
 Another almost-never-happening rule:
 
     x a (x b c) d e ... = J x a c b d e ...
+
+==Church numerals==
+
+Numeric constants and arithmetics are essential for Crazy J since Church numerals are used for both input and output, and are powerful constructs per se. Here we summarize IJ expressions for arithmetics as well as provide bruteforce results for some numeric constants.
+
+{| class="wikitable"
+|+ Arithmetics
+|-
+! Operation !! LC expression !! Crazy J (Unlambda syntax) !! Crazy J (CC syntax) !! Size !! Notes
+|-
+| +1 || λ n f x . f (n f x) || <code>````j`j`j``jiii```j``j```jiiij`ji`jj````j`j``jiii``jij``jii</code> || <code>J(J(J(JII)))I(J(J(JIII)J)(JI)(JJ))(J(J(JII))I(JIJ)(JII))</code> || 30 ||
+|-
+| + || λ m n f . m +1 n f || <code>```jii````j`j`j``jiii```j``j```jiiij`ji`jj````j`j``jiii``jij``jii</code> || <code>JII(J(J(J(JII)))I(J(J(JIII)J)(JI)(JJ))(J(J(JII))I(JIJ)(JII)))</code> || 33 ||
+|-
+| * || λ m n f . n (m f) || <code>```j`j`j``jii```jiii`j`ji</code> || <code>J(J(J(JII)))(JIII)(J(JI))</code> || 13 || <code>Q</code> combinator
+|-
+| ^ || λ m n . n m || <code>``jii</code> || <code>JII</code> || 3 || <code>T</code> combinator
+|-
+| λ n . n<sup>n</sup> || λ n . n n || <code>````j`j``ji```jiiii``j```jjiiij</code> || <code>J(J(JI(JIII)))I(J(JJII)I)J</code> || 16 || <code>M</code> combinator
+|-
+| n+m || λ f . m +1 n f || <code>````j`j``jiij``ji``ji```ji``j``jii m n ``jii</code> || <code>J(J(JII))J(JI(JI(JI(J(JII) m) n)))(JII)</code> || 19+sizeof(n)+sizeof(m) || Inlined version of <code>+</code> function
+|-
+| n*m || λ f . n (m f) || <code>```j``jii m ``ji n</code> || <code>J(JII) m (JI n)</code> || 6+sizeof(n)+sizeof(m) || Inlined version of <code>*</code> function
+|-
+| n<sup>m</sup> || m n || <code>` m n</code> || <code>m (n)</code> || 0+sizeof(n)+sizeof(m) || Inlined version of <code>^</code> function
+|-
+| n<sup>n</sup> || n n || <code>````j``j``jii n iii<code> || <code>J(J(JII) n)III</code> || 8+sizeof(n) || Inlined version of <code>M</code> combinator
+|-
+| n<sup>2</sup> || 2 n || <code>```j``jiii``j```jii n i</code> || <code>J(JII)I(J(JII n)I)</code> || 10+sizeof(n) || Inlined version of <code>2</code> constant
+|}
+
+{| class="wikitable"
+|+ Constants
+|-
+! Constant !! Crazy J (Unlambda syntax) !! Crazy J (CC syntax) !! Size !! Notes
+|-
+| 0 || Doesn't exist || Doesn't exist || n/a || Impossible in IJ basis
+|-
+| 1 || <code>i</code> || <code>I</code> || 1 ||
+|-
+| 2 || <code>```j``ji``j``jiii``jii``jij</code> || <code>J(JI(J(JII)I))(JII)(JIJ)</code> || 14 || Brute-forced (there's no shorter version)
+|-
+| 3 || <code>```j```j`j``ji``j``jiiiiii``j`jj``jij</code> || <code>J(J(J(JI(J(JII)I)))II)I(J(JJ)(JIJ))</code> || 19 || Brute-forced (there's no shorter version)
+|-
+| 4 || <code>```j``ji```ji``j``jiiii```jjii``j`jij</code> || <code>J(JI(JI(J(JII)I)I))(JJII)(J(JI)J)</code> || 19 || Brute-forced (there's no shorter version)
+|-
+| 8 || <code>````j```j`j``ji``j``jiiiiii``j`jj``jij```j``ji``j``jiii``jii``jij</code> || <code>J(J(J(JI(J(JII)I)))II)I(J(JJ)(JIJ))(J(JI(J(JII)I))(JII)(JIJ))</code> || 33 || 8=2<sup>3</sup>
+|-
+| 9 || <code>```j``jiii``j```jii```j```j`j``ji``j``jiiiiii``j`jj``jiji</code> || <code>J(JII)I(J(JII(J(J(J(JI(J(JII)I)))II)I(J(JJ)(JIJ))))I)</code> || 29 || 9=3<sup>2</sup>
+|-
+| 16 || <code>``````j``j``jii```j``ji``j``jiii``jii``jijj``jiijii</code> || <code>J(J(JII)(J(JI(J(JII)I))(JII)(JIJ)))J(JII)JII</code> || 26 || 16=(λx.xxx)2
+|-
+| 256 || <code>````j``j``jii```j``ji```ji``j``jiiii```jjii``j`jijiii<code> || <code>J(J(JII)(J(JI(JI(J(JII)I)I))(JJII)(J(JI)J)))III</code> || 27 || 256=4<sup>4</sup>
+|-
+| 257 || <code>````j`j``jiij``ji``ji```ji``j``jiii````j``j``jii```j``ji```ji``j``jiiii```jjii``j`jijiii``jii</code> || <code>J(J(JII))J(JI(JI(JI(J(JII)I)(J(J(JII)(J(JI(JI(J(JII)I)I))(JJII)(J(JI)J)))III))))(JII)</code> || 47 || EOF constant
+|}
 
 ==Examples==
 
