@@ -355,7 +355,7 @@ Numeric constants and arithmetics are essential for Crazy J since Church numeral
 |-
 | λ n . n<sup>n</sup> || λ n . n n || <code>````j`j``ji```jiiii``j```jjiiij</code> || <code>J(J(JI(JIII)))I(J(JJII)I)J</code> || 16 || <code>M</code> combinator
 |-
-| n+m || λ f . m +1 n f || <code>````j`j``jiij``ji``ji```ji``j``jii m n ``jii</code> || <code>J(J(JII))J(JI(JI(JI(J(JII) m) n)))(JII)</code> || 19+sizeof(n)+sizeof(m) || Inlined version of <code>+</code> function
+| n+m || λ f x . m f (n f x) || <code>````j`j``jiij``ji``ji```ji``j``jii m n ``jii</code> || <code>J(J(JII))J(JI(JI(JI(J(JII) m) n)))(JII)</code> || 19+sizeof(n)+sizeof(m) || Inlined version of <code>+</code> function
 |-
 | n*m || λ f . n (m f) || <code>```j``jii m ``ji n</code> || <code>J(JII) m (JI n)</code> || 6+sizeof(n)+sizeof(m) || Inlined version of <code>*</code> function
 |-
